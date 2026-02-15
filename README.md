@@ -18,6 +18,8 @@ echo "# Hello, World" | ./Handoc
 - [x] Paragraph
 - [x] Blockquote
 - [x] Bold, Italic
+- [x] Horizontal line
+- [x] Code snippet
 - [ ] Ordered list
 - [ ] Unordered list
 - [ ] Hyperlink
