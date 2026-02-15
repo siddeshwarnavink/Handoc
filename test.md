@@ -52,5 +52,9 @@ and this is part of the same paragraph
 
 __still bold__
 
+My favorite search engine is [Duck Duck Go](https://duckduckgo.com).
+
+![Linux logo](https://duckduckgo.com/i/b3480595911fb85f.png)
+
 ---
 paragraph right after a line

@@ -5,6 +5,7 @@
 
 import Data.List
 import Data.Char
+import Data.Maybe
 import System.Environment
 import System.IO
 import Control.Exception
@@ -25,8 +26,34 @@ parseInner line = concat $ sm False False line []
       let tag = if italic then "</i>" else "<i>"
         in sm bold (not italic) rst (tag : acc)
 
+    -- NOTE: Monadic was a bad idea here. But anyways!
+    tryLink :: String -> Maybe (String, String, String) -- label, url, rest
+    tryLink "" = Nothing
+    tryLink l  = "[" `stripPrefix` l
+      >>= (\rst -> let (label, rst') = span (/= ']') rst
+        in if (null rst') then Nothing else Just(label, (drop 1 rst')))
+      >>= (\(label, rst)  -> Just (label, ("(" `stripPrefix` rst)))
+      >>= (\(label, mRst) -> case mRst of
+            Just rst -> let (url,rst') = span (/= ')') rst
+              in Just(label, url, (drop 1 rst'))
+            Nothing -> Nothing)
+
+    tryImg :: String -> Maybe (String, String, String) -- alt, url, rest
+    tryImg "" = Nothing
+    tryImg l  = "!" `stripPrefix` l >>= (\rst -> tryLink rst)
+
+    wrapLink :: String -> String -> String
+    wrapLink label url = "<a href=\"" ++ url ++ "\">" ++ label ++ "</a>"
+
+    wrapImg :: String -> String -> String
+    wrapImg alt url = "<img src=\"" ++ url ++ "\" alt=\"" ++ alt ++ "\" />"
+
     sm bold italic ""  acc = reverse acc
     sm bold italic rst acc
+      | Just (label, url, rst') <- tryLink rst =
+        sm bold italic rst' ((wrapLink label url) : acc)
+      | Just (alt, url, rst') <- tryImg rst =
+        sm bold italic rst' ((wrapImg alt url) : acc)
       | "**" `isPrefixOf` rst = parseBold   bold italic (drop 2 rst) acc
       | "__" `isPrefixOf` rst = parseBold   bold italic (drop 2 rst) acc
       | "_"  `isPrefixOf` rst = parseItalic bold italic (drop 1 rst) acc
