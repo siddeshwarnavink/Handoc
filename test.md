@@ -27,6 +27,16 @@ int main(int argc, char **argv) {
 
 ---
 
+Ordered List test:
+1. Item A
+2. Item B
+3. Item C
+
+Unordered List test:
+- Item A
+- Item B
+- Item C
+
 # My Title
 Right after the heading
 

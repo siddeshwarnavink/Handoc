@@ -26,17 +26,16 @@ parseInner line = concat $ sm False False line []
       let tag = if italic then "</i>" else "<i>"
         in sm bold (not italic) rst (tag : acc)
 
-    -- NOTE: Monadic was a bad idea here. But anyways!
     tryLink :: String -> Maybe (String, String, String) -- label, url, rest
-    tryLink "" = Nothing
-    tryLink l  = "[" `stripPrefix` l
-      >>= (\rst -> let (label, rst') = span (/= ']') rst
-        in if (null rst') then Nothing else Just(label, (drop 1 rst')))
-      >>= (\(label, rst)  -> Just (label, ("(" `stripPrefix` rst)))
-      >>= (\(label, mRst) -> case mRst of
-            Just rst -> let (url,rst') = span (/= ')') rst
-              in Just(label, url, (drop 1 rst'))
-            Nothing -> Nothing)
+    tryLink ('[':xs) =
+      case span (/= ']') xs of
+        (label, ']':'(':rest) ->
+          case span (/= ')') rest of
+            (url, ')':rst') ->
+              Just (label, url, rst')
+            _ -> Nothing
+        _ -> Nothing
+    tryLink _ = Nothing
 
     tryImg :: String -> Maybe (String, String, String) -- alt, url, rest
     tryImg "" = Nothing
@@ -79,6 +78,26 @@ parseLine line =
       | Just content <- "> "      `stripPrefix` line = Just("span", content) -- <blockquote> be added parseChunk
       | otherwise                                    = Nothing
 
+getListContent :: String -> Maybe (String, Bool) -- content, isOrderedList
+getListContent l
+  | Just rst <- "- "  `stripPrefix`  l = Just (rst, False)
+  | otherwise = parseOrderedList l
+  where
+    isNumber :: Char -> Bool
+    isNumber c = c >= '0' && c <= '9'
+
+    parseOrderedList :: String -> Maybe (String, Bool)
+    parseOrderedList xs
+      | all isNumber xs                  = Nothing
+      | (digits, '.':' ':content) <- span isNumber xs
+      , not (null digits)                = Just (content, True)
+      | otherwise                        = Nothing
+
+isListPrefix :: String -> Maybe Bool -- isOrderedList
+isListPrefix l = case getListContent l of
+  Nothing -> Nothing
+  Just(_, isOrdered) -> Just isOrdered
+
 parseChunk :: [String] -> String
 parseChunk ls = unlines $ map go $ splitChunks $ normalize ls
   where
@@ -96,8 +115,8 @@ parseChunk ls = unlines $ map go $ splitChunks $ normalize ls
         shouldBreak line = "#" `isPrefixOf` line
           || "---" `isPrefixOf` line
 
-    -- Chunk by paragraph, but also ensure a code block is
-    -- a single chunk
+    -- Chunk by paragraph, but also ensure a code block and
+    -- lists are in separate chunk
     splitChunks :: [String] -> [[String]]
     splitChunks = go []
       where
@@ -108,9 +127,10 @@ parseChunk ls = unlines $ map go $ splitChunks $ normalize ls
         go :: [String] -> [String] -> [[String]]
         go acc []                = flush acc
         go acc (l:ls)
-          | "```" `isPrefixOf` l = flush acc ++ collectCodeBlock (l:ls)
-          | null l               = flush acc ++ go [] ls
-          | otherwise            = go (l:acc) ls
+          | "```" `isPrefixOf` l     = flush acc ++ collectCodeBlock (l:ls)
+          | Just _ <- isListPrefix l = flush acc ++ collectList (l:ls)
+          | null l                   = flush acc ++ go [] ls
+          | otherwise                = go (l:acc) ls
 
         parseCodeLine :: String -> String
         parseCodeLine = (++ "<br>") . concatMap escapeChar
@@ -126,10 +146,25 @@ parseChunk ls = unlines $ map go $ splitChunks $ normalize ls
         collectCodeBlock :: [String] -> [[String]]
         collectCodeBlock (start:ls) = go [start] ls
           where
+            go :: [String] -> [String] -> [[String]]
             go acc []                = flush acc
             go acc (l:ls)
               | "```" `isPrefixOf` l = flush (l:acc) ++ splitChunks ls
               | otherwise            = go (l':acc) ls where l' = parseCodeLine l
+
+        collectList :: [String] -> [[String]]
+        collectList (start:ls) = case getListContent start of
+          Just (content, isOrdered) -> go [wrapTag "li" content, ("<" ++ listTag ++ ">")] ls
+            where
+              listTag :: String
+              listTag = if isOrdered then "ol" else "ul"
+
+              go :: [String] -> [String] -> [[String]]
+              go acc [] = flush acc
+              go acc (l:ls)
+                | Just (content, _) <- getListContent l =
+                  let l' = wrapTag "li" content in go (l':acc) ls
+                | otherwise = flush (("</" ++ listTag ++ ">"):l:acc) ++ splitChunks ls
 
     go :: [String] -> String
     go ls
@@ -156,9 +191,10 @@ parseChunk ls = unlines $ map go $ splitChunks $ normalize ls
         tryTag :: [String] -> Maybe String
         tryTag [] = Nothing
         tryTag (line:_)
-          | "#" `isPrefixOf` line = Nothing -- <h#> added by parseLine
-          | ">" `isPrefixOf` line = Just("blockquote")
-          | otherwise             = Just("p")
+          | Just isOrdered <- isListPrefix line = Just(if isOrdered then "ol" else "ul")
+          | "#" `isPrefixOf` line               = Nothing -- <h#> added by parseLine
+          | ">" `isPrefixOf` line               = Just("blockquote")
+          | otherwise                           = Just("p")
 
         inner :: [String] -> String
         inner [] = ""

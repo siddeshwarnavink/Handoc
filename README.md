@@ -20,7 +20,8 @@ echo "# Hello, World" | ./Handoc
 - [x] Bold, Italic
 - [x] Horizontal line
 - [x] Code snippet
-- [ ] Simple Ordered/Unordered list
+- [x] Simple Ordered/Unordered list
+- [ ] Nested Ordered/Unordered list
 - [x] Simple hyperlink
 - [ ] Reference hyperlink
 - [x] Image
