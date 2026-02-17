@@ -1,4 +1,4 @@
 *.o
 *.hi
 Handoc
-test.html
+*.html

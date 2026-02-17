@@ -8,7 +8,7 @@ A tiny markdown to HTML converter written in Haskell
 ```sh
 make
 echo "# Hello, World" | ./Handoc
-./Handoc test.md > test.html
+./Handoc tests/git-workflow-guide.md > tests/git-workflow-guide.html
 ```
 [pandoc]: https://github.com/jgm/pandoc
 

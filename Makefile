@@ -1,8 +1,15 @@
-.PHONY: all
-all: Handoc test.html
+MD_FILES   := $(wildcard tests/*.md)
+HTML_FILES := $(MD_FILES:.md=.html)
+
+.PHONY: all clean
+all: Handoc $(HTML_FILES)
 
 Handoc: Handoc.hs
 	ghc Handoc.hs
 
-test.html: Handoc test.md
-	./Handoc test.md > test.html
+%.html: %.md Handoc
+	./Handoc $< > $@
+
+clean:
+	rm -f Handoc.hi Handoc.o Handoc
+	rm -f $(HTML_FILES)
